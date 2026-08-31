@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { codeToHtml } from "shiki";
+import commandJobSource from "../../../examples/node-scraper/src/command-job.ts?raw";
+import dependencyFlowSource from "../../../examples/node-scraper/src/dependency-flow.recipe.ts?raw";
+import dynamicParentSource from "../../../examples/node-scraper/src/dynamic-parent-job.ts?raw";
+import flakyJobSource from "../../../examples/node-scraper/src/flaky-job.ts?raw";
+import longJobSource from "../../../examples/node-scraper/src/long-job.ts?raw";
+import quickJobSource from "../../../examples/node-scraper/src/quick-job.ts?raw";
+import rateLimitedSource from "../../../examples/node-scraper/src/rate-limited.recipe.ts?raw";
+import scrapeJobSource from "../../../examples/node-scraper/src/scrape-job.ts?raw";
 import {
   Boxes,
   Ban,
@@ -88,9 +96,10 @@ interface ScriptSource {
 }
 
 const api = "/api/v1";
+const isStaticDemo = location.hostname.endsWith("github.io");
 
 function App() {
-  const [view, setView] = useState<View>("work");
+  const [view, setView] = useState<View>(initialView());
   const [jobs, setJobs] = useState<Job[]>([]);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
@@ -111,14 +120,33 @@ function App() {
   const [exampleError, setExampleError] = useState<string | null>(null);
 
   const refresh = async () => {
-    const [nextJobs, nextQueues, nextFlows, nextBuckets, nextHealth, nextMetrics] = await Promise.all([
-      getJson<Job[]>("/jobs"),
-      getJson<Queue[]>("/queues"),
-      getJson<Flow[]>("/flows"),
-      getJson<RateLimitBucket[]>("/rate-limit-buckets"),
-      getJson<Record<string, unknown>>("/health"),
-      getJson<Record<string, number>>("/metrics")
-    ]);
+    let nextJobs: Job[];
+    let nextQueues: Queue[];
+    let nextFlows: Flow[];
+    let nextBuckets: RateLimitBucket[];
+    let nextHealth: Record<string, unknown>;
+    let nextMetrics: Record<string, number>;
+
+    try {
+      [nextJobs, nextQueues, nextFlows, nextBuckets, nextHealth, nextMetrics] = await Promise.all([
+        getJson<Job[]>("/jobs"),
+        getJson<Queue[]>("/queues"),
+        getJson<Flow[]>("/flows"),
+        getJson<RateLimitBucket[]>("/rate-limit-buckets"),
+        getJson<Record<string, unknown>>("/health"),
+        getJson<Record<string, number>>("/metrics")
+      ]);
+    } catch (error) {
+      if (!isStaticDemo) throw error;
+      nextJobs = demoJobs;
+      nextQueues = demoQueues;
+      nextFlows = demoFlows;
+      nextBuckets = demoBuckets;
+      nextHealth = demoHealth;
+      nextMetrics = demoMetrics;
+      setConnected(false);
+    }
+
     setJobs(nextJobs);
     setQueues(nextQueues);
     setFlows(nextFlows);
@@ -129,6 +157,7 @@ function App() {
   };
 
   const post = async (path: string, body?: unknown) => {
+    if (isStaticDemo) return;
     await request("POST", path, body);
     await refresh();
   };
@@ -138,6 +167,13 @@ function App() {
     setRunningExample(example.id);
     setExampleError(null);
     try {
+      if (isStaticDemo) {
+        const job = demoJobForExample(example);
+        setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+        setSelectedJob(job);
+        setExampleResult({ title: example.title, jobIds: [job.id], flowId: job.flowId ?? undefined });
+        return;
+      }
       const result = await example.run(String(health?.workspaceRoot ?? ""));
       setExampleResult(result);
       await refresh();
@@ -165,6 +201,7 @@ function App() {
 
   useEffect(() => {
     void refresh();
+    if (isStaticDemo) return;
     const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${api}/events`);
     socket.addEventListener("open", () => setConnected(true));
     socket.addEventListener("close", () => setConnected(false));
@@ -175,6 +212,12 @@ function App() {
   useEffect(() => {
     if (!selectedJob) {
       setScriptSource(null);
+      return;
+    }
+    if (isStaticDemo) {
+      setLogs(demoLogs[selectedJob.id] ?? []);
+      setCommands(demoCommands[selectedJob.id] ?? []);
+      setScriptSource(demoSourceFor(selectedJob.payload.script));
       return;
     }
     fetch(`${api}/jobs/${encodeURIComponent(selectedJob.id)}/logs`)
@@ -195,6 +238,10 @@ function App() {
     setSelectedExampleId(example.id);
     setExampleError(null);
     try {
+      if (isStaticDemo) {
+        setExampleSource(demoSourceFor(example.script));
+        return;
+      }
       const workspaceRoot = String(health?.workspaceRoot ?? "");
       if (!workspaceRoot) throw new Error("Qme health has not reported a workspace root yet. Refresh and try again.");
       const cwd = exampleCwd(workspaceRoot);
@@ -215,6 +262,17 @@ function App() {
     setSelectedJob(null);
     setSelectedExampleId(example.id);
     void showExampleCode(example);
+  };
+
+  const changeView = (nextView: View) => {
+    setView(nextView);
+    const url = new URL(location.href);
+    if (nextView === "work") {
+      url.searchParams.delete("view");
+    } else {
+      url.searchParams.set("view", nextView);
+    }
+    history.replaceState(null, "", url);
   };
 
   const title = viewTitles[view];
@@ -269,15 +327,15 @@ function App() {
             <span>Qme</span>
           </div>
           <nav>
-            <NavButton icon={<ListChecks size={16} />} label="Work" active={view === "work"} onClick={() => setView("work")} />
-            <NavButton icon={<Play size={16} />} label="Examples" active={view === "examples"} onClick={() => setView("examples")} />
-            <NavButton icon={<GitBranch size={16} />} label="Flows" active={view === "flows"} onClick={() => setView("flows")} />
-            <NavButton icon={<Boxes size={16} />} label="Queues" active={view === "queues"} onClick={() => setView("queues")} />
-            <NavButton icon={<Terminal size={16} />} label="Jobs" active={view === "jobs"} onClick={() => setView("jobs")} />
-            <NavButton icon={<Gauge size={16} />} label="Rate Limits" active={view === "rateLimits"} onClick={() => setView("rateLimits")} />
-            <NavButton icon={<Database size={16} />} label="Store" active={view === "store"} onClick={() => setView("store")} />
-            <NavButton icon={<BookOpen size={16} />} label="Library" active={view === "library"} onClick={() => setView("library")} />
-            <NavButton icon={<Settings size={16} />} label="Settings" active={view === "settings"} onClick={() => setView("settings")} />
+            <NavButton icon={<ListChecks size={16} />} label="Work" active={view === "work"} onClick={() => changeView("work")} />
+            <NavButton icon={<Play size={16} />} label="Examples" active={view === "examples"} onClick={() => changeView("examples")} />
+            <NavButton icon={<GitBranch size={16} />} label="Flows" active={view === "flows"} onClick={() => changeView("flows")} />
+            <NavButton icon={<Boxes size={16} />} label="Queues" active={view === "queues"} onClick={() => changeView("queues")} />
+            <NavButton icon={<Terminal size={16} />} label="Jobs" active={view === "jobs"} onClick={() => changeView("jobs")} />
+            <NavButton icon={<Gauge size={16} />} label="Rate Limits" active={view === "rateLimits"} onClick={() => changeView("rateLimits")} />
+            <NavButton icon={<Database size={16} />} label="Store" active={view === "store"} onClick={() => changeView("store")} />
+            <NavButton icon={<BookOpen size={16} />} label="Library" active={view === "library"} onClick={() => changeView("library")} />
+            <NavButton icon={<Settings size={16} />} label="Settings" active={view === "settings"} onClick={() => changeView("settings")} />
           </nav>
           <button className="iconButton" onClick={() => void refresh()} title="Refresh" aria-label="Refresh">
             <RefreshCw size={18} />
@@ -413,6 +471,205 @@ const examples: ExampleDefinition[] = [
     }
   }
 ];
+
+const demoSources: Record<string, ScriptSource> = {
+  "quick-job.ts": { path: "examples/node-scraper/src/quick-job.ts", language: "typescript", code: quickJobSource },
+  "scrape-job.ts": { path: "examples/node-scraper/src/scrape-job.ts", language: "typescript", code: scrapeJobSource },
+  "flaky-job.ts": { path: "examples/node-scraper/src/flaky-job.ts", language: "typescript", code: flakyJobSource },
+  "long-job.ts": { path: "examples/node-scraper/src/long-job.ts", language: "typescript", code: longJobSource },
+  "command-job.ts": { path: "examples/node-scraper/src/command-job.ts", language: "typescript", code: commandJobSource },
+  "dependency-flow.recipe.ts": { path: "examples/node-scraper/src/dependency-flow.recipe.ts", language: "typescript", code: dependencyFlowSource },
+  "rate-limited.recipe.ts": { path: "examples/node-scraper/src/rate-limited.recipe.ts", language: "typescript", code: rateLimitedSource },
+  "dynamic-parent-job.ts": { path: "examples/node-scraper/src/dynamic-parent-job.ts", language: "typescript", code: dynamicParentSource }
+};
+
+const demoNow = Date.now();
+const demoQueues: Queue[] = [
+  { name: "scraping", state: "active", maxConcurrency: 4, depth: 3, active: 2 },
+  { name: "flow", state: "active", maxConcurrency: 4, depth: 1, active: 1 },
+  { name: "limited", state: "active", maxConcurrency: 2, depth: 2, active: 0 },
+  { name: "commands", state: "paused", maxConcurrency: 1, depth: 1, active: 0 },
+  { name: "examples", state: "active", maxConcurrency: 4, depth: 0, active: 1 }
+];
+const demoFlows: Flow[] = [
+  {
+    id: "flow_demo_site_crawl",
+    name: "example-dependency-flow",
+    state: "active",
+    originApp: "qme-web-examples",
+    completionPolicy: "all",
+    failurePolicy: "fail-flow",
+    totalJobs: 3,
+    completedJobs: 1,
+    failedJobs: 0,
+    activeJobs: 1,
+    waitingJobs: 1
+  },
+  {
+    id: "flow_demo_dynamic_research",
+    name: "dynamic-research-pass",
+    state: "completed",
+    originApp: "embedded-qme-demo",
+    completionPolicy: "all",
+    failurePolicy: "continue",
+    totalJobs: 4,
+    completedJobs: 4,
+    failedJobs: 0,
+    activeJobs: 0,
+    waitingJobs: 0
+  }
+];
+const demoBuckets: RateLimitBucket[] = [
+  { name: "domain:example.com", max: 2, durationMs: 1500, used: 1, windowStartedAt: ago(18_000) },
+  { name: "ai:local-model", max: 3, durationMs: 5000, used: 2, windowStartedAt: ago(32_000) }
+];
+const demoJobs: Job[] = [
+  demoJob({
+    id: "job_demo_scrape_active",
+    queue: "scraping",
+    script: "scrape-job.ts",
+    args: ["https://example.com/catalog"],
+    state: "active",
+    priority: 10,
+    progressPercent: 60,
+    rateLimitBuckets: ["domain:example.com"],
+    resultMeta: {
+      outputs: [{ name: "summary", value: { target: "https://example.com/catalog", chunks: 3 }, at: ago(8_000) }],
+      artifacts: [{ path: "outputs/example.jsonl", meta: { format: "jsonl", target: "https://example.com/catalog" }, at: ago(6_000) }]
+    }
+  }),
+  demoJob({
+    id: "job_demo_flow_recipe",
+    queue: "flow",
+    script: "dependency-flow.recipe.ts",
+    state: "completed",
+    flowId: "flow_demo_site_crawl",
+    priority: 100,
+    progressPercent: 100,
+    resultMeta: { outputs: [{ name: "created", value: { flowId: "flow_demo_site_crawl", jobs: ["job_demo_flow_first", "job_demo_flow_second"] } }] }
+  }),
+  demoJob({
+    id: "job_demo_flow_second",
+    queue: "flow",
+    script: "quick-job.ts",
+    args: ["flow-second"],
+    state: "waiting",
+    flowId: "flow_demo_site_crawl",
+    priority: 100,
+    progressPercent: 0
+  }),
+  demoJob({
+    id: "job_demo_command",
+    queue: "commands",
+    script: "command-job.ts",
+    state: "waiting",
+    priority: 50,
+    progressPercent: 0
+  }),
+  demoJob({
+    id: "job_demo_quick_done",
+    queue: "examples",
+    script: "quick-job.ts",
+    args: ["quick-demo"],
+    state: "completed",
+    priority: 20,
+    progressPercent: 100,
+    resultMeta: { outputs: [{ name: "summary", value: { label: "quick-demo", message: "Quick job completed" }, at: ago(90_000) }] }
+  })
+];
+const demoMetrics = {
+  waiting: 5,
+  active: 3,
+  completed: 18,
+  failed: 1,
+  canceled: 2,
+  interrupted: 0,
+  completedFlows: 4
+};
+const demoHealth: Record<string, unknown> = {
+  version: "0.1.0",
+  store: ".qme/qme.sqlite",
+  discovery: ".qme/discovery.json",
+  workspaceRoot: "/demo/qme",
+  mode: "GitHub Pages static demo"
+};
+const demoLogs: Record<string, Array<{ stream: string; line: string; createdAt: string }>> = {
+  job_demo_scrape_active: [
+    { stream: "stdout", line: "Starting scrape for https://example.com/catalog", createdAt: ago(42_000) },
+    { stream: "stdout", line: "Fetched page chunk 1", createdAt: ago(35_000) },
+    { stream: "stdout", line: "Fetched page chunk 2", createdAt: ago(29_000) },
+    { stream: "stdout", line: "Fetched page chunk 3", createdAt: ago(20_000) }
+  ],
+  job_demo_command: [{ stream: "stdout", line: "command-job waiting", createdAt: ago(26_000) }],
+  job_demo_quick_done: [
+    { stream: "stdout", line: "quick-job quick-demo started", createdAt: ago(96_000) },
+    { stream: "stdout", line: "quick-job quick-demo done", createdAt: ago(90_000) }
+  ],
+  job_demo_flow_recipe: [
+    { stream: "stdout", line: "Creating dependency flow", createdAt: ago(75_000) },
+    { stream: "stdout", line: "Created dependency flow flow_demo_site_crawl", createdAt: ago(69_000) }
+  ]
+};
+const demoCommands: Record<string, Array<{ id: string; state: string; payload: unknown; createdAt: string }>> = {
+  job_demo_command: [
+    { id: "cmd_demo_continue", state: "queued", payload: { instruction: "continue from dashboard" }, createdAt: ago(12_000) }
+  ]
+};
+
+function demoSourceFor(script: string): ScriptSource | null {
+  return demoSources[basename(script)] ?? null;
+}
+
+function demoJobForExample(example: ExampleDefinition): Job {
+  return demoJobs.find((job) => basename(job.payload.script) === example.script) ?? demoJob({
+    id: `job_demo_${example.id}`,
+    queue: example.queue,
+    script: example.script,
+    state: "waiting",
+    priority: 100,
+    progressPercent: 0
+  });
+}
+
+function demoJob(input: {
+  id: string;
+  queue: string;
+  script: string;
+  args?: string[];
+  state: string;
+  flowId?: string;
+  priority: number;
+  progressPercent: number;
+  rateLimitBuckets?: string[];
+  resultMeta?: unknown;
+}): Job {
+  return {
+    id: input.id,
+    queue: input.queue,
+    flowId: input.flowId ?? null,
+    dedupeKey: null,
+    dedupeScope: null,
+    rateLimitBuckets: input.rateLimitBuckets ?? [],
+    state: input.state,
+    priority: input.priority,
+    payload: {
+      type: "node",
+      script: input.script,
+      args: input.args ?? [],
+      cwd: "/demo/qme/examples/node-scraper/src",
+      originApp: "qme-pages-demo"
+    },
+    retryPolicy: { attempts: input.script === "flaky-job.ts" ? 2 : 1, backoff: "fixed", delayMs: input.script === "flaky-job.ts" ? 250 : 0 },
+    progressPercent: input.progressPercent,
+    progressMeta: null,
+    resultMeta: input.resultMeta ?? null,
+    failureReason: null,
+    createdAt: ago(120_000),
+    updatedAt: ago(10_000),
+    startedAt: input.state === "waiting" ? null : ago(80_000),
+    finishedAt: ["completed", "failed", "canceled"].includes(input.state) ? ago(40_000) : null
+  };
+}
 
 function ExamplesList(props: {
   selectedExampleId: string;
@@ -1295,6 +1552,21 @@ function basename(value: string) {
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleTimeString() : "not used";
 }
+
+function ago(ms: number): string {
+  return new Date(demoNow - ms).toISOString();
+}
+
+function initialView(): View {
+  const requested = new URLSearchParams(location.search).get("view");
+  return isView(requested) ? requested : "work";
+}
+
+function isView(value: string | null): value is View {
+  return value !== null && validViews.includes(value as View);
+}
+
+const validViews: View[] = ["work", "examples", "flows", "queues", "jobs", "rateLimits", "store", "library", "settings"];
 
 const viewTitles: Record<View, { heading: string; copy: string }> = {
   work: { heading: "Active Work", copy: "Local queue execution, script output, and progress in real time." },

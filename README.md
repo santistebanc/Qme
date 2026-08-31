@@ -4,6 +4,12 @@ Qme is a TypeScript-first local job queue for trusted apps. It can run embedded
 inside a TypeScript app, and it can also expose the local HTTP API/dashboard when
 you want multiple apps or a browser UI.
 
+Try the static dashboard demo on GitHub Pages:
+[Dashboard](https://santistebanc.github.io/Qme/) ·
+[Library docs](https://santistebanc.github.io/Qme/?view=library)
+
+![Qme dashboard library docs](docs/assets/qme-dashboard.png)
+
 ## Embedded Library
 
 ```ts
