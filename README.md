@@ -7,9 +7,9 @@ you want multiple apps or a browser UI.
 ## Embedded Library
 
 ```ts
-import { Qme } from "@qme/core";
+import { Qme } from "qme";
 
-const qme = Qme.create({
+const qme = new Qme({
   db: ".qme/qme.sqlite",
   workspaceRoots: [process.cwd()]
 });
@@ -30,9 +30,66 @@ await qme.add(
 );
 ```
 
-Use `@qme/core` when your TypeScript app should own the queue runtime. Use
-`@qme/server` when you want the same Qme instance exposed over HTTP with the
-dashboard.
+Use `new Qme(...)` when your TypeScript app should own the queue runtime,
+SQLite store, and workers.
+
+## Script Jobs
+
+Scripts launched by Qme use the same package and discover their job context from
+environment variables:
+
+```ts
+import { Qme } from "qme";
+
+const qme = Qme.fromEnv();
+const url = qme.args.require(0, "url");
+
+qme.job.log(`Scraping ${url}`);
+qme.job.progress(25, { url });
+qme.job.output("url", url);
+```
+
+## Trusted Local Apps
+
+Other trusted local Node apps can connect to an already running Qme runtime:
+
+```ts
+import { Qme } from "qme";
+
+const qme = Qme.connect({
+  apiUrl: "http://127.0.0.1:47321/api/v1"
+});
+
+const job = await qme.jobs.create("scraping", {
+  script: qme.scripts.node("jobs/scrape.ts", {
+    args: ["https://example.com"],
+    originApp: "my-node-app"
+  }),
+  priority: 10
+});
+
+qme.events.subscribe({
+  queue: "scraping",
+  onEvent(event) {
+    console.log(event);
+  }
+});
+```
+
+## Public API Shape
+
+Most user code should only need one import:
+
+```ts
+import { Qme } from "qme";
+```
+
+- `new Qme(options)` owns the local runtime.
+- `Qme.connect(options)` talks to a running trusted local runtime.
+- `Qme.fromEnv(options)` runs inside a Qme-launched script job.
+
+From there, use the same plain nouns: `qme.jobs`, `qme.queues`, `qme.flows`,
+`qme.rateLimitBuckets`, `qme.commands`, `qme.scripts`, and `qme.retry`.
 
 ## Development
 
