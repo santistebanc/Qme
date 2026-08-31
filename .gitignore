@@ -7,3 +7,4 @@ dist-types/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+examples/node-scraper/outputs/

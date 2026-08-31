@@ -12,8 +12,20 @@ export interface HandlerJobContext<TData = unknown> {
   progress: (progressPercent: number, progressMeta?: unknown) => void;
   output: (name: string, value: unknown) => void;
   artifact: (path: string, meta?: unknown) => void;
+  result: (result: QmeJobResultInput) => void;
   log: (line: string, stream?: "stdout" | "stderr") => void;
   signal: AbortSignal;
+}
+
+export interface QmeArtifactInput {
+  path: string;
+  meta?: unknown;
+}
+
+export interface QmeJobResultInput {
+  summary?: unknown;
+  outputs?: Record<string, unknown>;
+  artifacts?: Array<string | QmeArtifactInput>;
 }
 
 export type QmeJobHandler<TData = unknown, TResult = unknown> = (context: HandlerJobContext<TData>) => TResult | Promise<TResult>;
@@ -196,6 +208,16 @@ export class WorkerPool {
     const controller = new AbortController();
     this.runningHandlers.set(job.id, controller);
     try {
+      const output = (name: string, value: unknown) => {
+        const item = { name, value, at: new Date().toISOString() };
+        const updated = this.store.updateJobResultMeta(job.id, appendResultItem(this.store.getJob(job.id).resultMeta, "outputs", item));
+        this.events.emit({ type: "job.output", jobId: job.id, queue: job.queue, data: { job: updated, output: item } });
+      };
+      const artifact = (artifactPath: string, meta?: unknown) => {
+        const item = { path: artifactPath, meta: meta ?? null, at: new Date().toISOString() };
+        const updated = this.store.updateJobResultMeta(job.id, appendResultItem(this.store.getJob(job.id).resultMeta, "artifacts", item));
+        this.events.emit({ type: "job.artifact", jobId: job.id, queue: job.queue, data: { job: updated, artifact: item } });
+      };
       const result = await handler({
         job,
         data: job.payload.data,
@@ -203,16 +225,9 @@ export class WorkerPool {
           const updated = this.store.updateJobProgress(job.id, progressPercent, progressMeta ?? null);
           this.events.emit({ type: "job.progress", jobId: job.id, queue: job.queue, data: { job: updated } });
         },
-        output: (name, value) => {
-          const output = { name, value, at: new Date().toISOString() };
-          const updated = this.store.updateJobResultMeta(job.id, appendResultItem(this.store.getJob(job.id).resultMeta, "outputs", output));
-          this.events.emit({ type: "job.output", jobId: job.id, queue: job.queue, data: { job: updated, output } });
-        },
-        artifact: (artifactPath, meta) => {
-          const artifact = { path: artifactPath, meta: meta ?? null, at: new Date().toISOString() };
-          const updated = this.store.updateJobResultMeta(job.id, appendResultItem(this.store.getJob(job.id).resultMeta, "artifacts", artifact));
-          this.events.emit({ type: "job.artifact", jobId: job.id, queue: job.queue, data: { job: updated, artifact } });
-        },
+        output,
+        artifact,
+        result: (jobResult) => reportResult(jobResult, output, artifact),
         log: (line, stream = "stdout") => this.handleLine(job, stream, line),
         signal: controller.signal
       });
@@ -328,6 +343,26 @@ function appendResultItem(current: unknown, key: "artifacts" | "outputs", item: 
   const existing = Array.isArray(result[key]) ? result[key] : [];
   result[key] = [...existing, item];
   return result;
+}
+
+function reportResult(
+  result: QmeJobResultInput,
+  output: (name: string, value: unknown) => void,
+  artifact: (path: string, meta?: unknown) => void
+): void {
+  if (result.summary !== undefined) {
+    output("summary", result.summary);
+  }
+  for (const [name, value] of Object.entries(result.outputs ?? {})) {
+    output(name, value);
+  }
+  for (const item of result.artifacts ?? []) {
+    if (typeof item === "string") {
+      artifact(item);
+    } else {
+      artifact(item.path, item.meta);
+    }
+  }
 }
 
 function computeBackoffMs(policy: { backoff: "fixed" | "exponential"; delayMs: number }, attemptsUsed: number): number {

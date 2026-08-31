@@ -13,6 +13,7 @@ import {
   Boxes,
   Ban,
   BookOpen,
+  Clipboard,
   Database,
   Gauge,
   GitBranch,
@@ -534,8 +535,8 @@ const demoJobs: Job[] = [
     progressPercent: 60,
     rateLimitBuckets: ["domain:example.com"],
     resultMeta: {
-      outputs: [{ name: "summary", value: { target: "https://example.com/catalog", chunks: 3 }, at: ago(8_000) }],
-      artifacts: [{ path: "outputs/example.jsonl", meta: { format: "jsonl", target: "https://example.com/catalog" }, at: ago(6_000) }]
+      outputs: [{ name: "summary", value: { target: "https://example.com/catalog", rows: 3, artifact: "outputs/job_demo_scrape_active/pages.jsonl" }, at: ago(8_000) }],
+      artifacts: [{ path: "outputs/job_demo_scrape_active/pages.jsonl", meta: { format: "jsonl", rows: 3, target: "https://example.com/catalog" }, at: ago(6_000) }]
     }
   }),
   demoJob({
@@ -941,11 +942,34 @@ const url = qme.args.require(0, "url");
 qme.job.log(\`Scraping \${url}\`);
 qme.job.progress(10, { url });
 
-const command = await qme.commands.next({ timeoutMs: qme.seconds(10) });
-if (!command) qme.job.fail("No command received", { url });
+qme.job.result({
+  summary: { url, rows: 120 },
+  artifacts: [{
+    path: "outputs/run-123/pages.jsonl",
+    meta: { format: "jsonl", rows: 120 }
+  }]
+});`
+  },
+  {
+    eyebrow: "Results",
+    title: "Return Metadata, Store Data",
+    copy: "Keep Qme results small: report summaries and artifact pointers, then let your scraper write the real dataset.",
+    code: `const rows = await scrape(url);
+const artifact = \`outputs/\${qme.jobId}/pages.jsonl\`;
 
-await qme.commands.ack(command.id);
-qme.job.output("url", url);`
+await writeJsonl(artifact, rows);
+
+qme.job.result({
+  summary: {
+    url,
+    rows: rows.length,
+    artifact
+  },
+  artifacts: [{
+    path: artifact,
+    meta: { format: "jsonl", rows: rows.length }
+  }]
+});`
   }
 ];
 
@@ -992,7 +1016,8 @@ function LibraryReference() {
     ["qme.queues", "list, pause, resume."],
     ["qme.flows", "create, list, get, jobs, pause, resume, cancel."],
     ["qme.rateLimitBuckets", "list and upsert shared throttling buckets."],
-    ["qme.commands", "send commands to jobs and ack them from scripts."]
+    ["qme.commands", "send commands to jobs and ack them from scripts."],
+    ["qme.job.result(input)", "From scripts, report summaries, outputs, and artifact pointers."]
   ] as const;
 
   return (
@@ -1265,7 +1290,7 @@ function JobDetails(props: {
           <ArgsList args={props.job.payload.args ?? []} />
         </div>
         <div className="detailBlock">
-          <h3>Outputs</h3>
+          <h3>Results</h3>
           <OutputsBlock resultMeta={props.job.resultMeta} />
         </div>
         <div className="detailBlock">
@@ -1292,7 +1317,7 @@ function JobDetails(props: {
 function OutputsBlock(props: { resultMeta: unknown }) {
   const result = normalizeResultMeta(props.resultMeta);
   if (result.artifacts.length === 0 && result.outputs.length === 0 && result.raw === null) {
-    return <p className="emptyText">No outputs have been reported yet.</p>;
+    return <p className="emptyText">No results have been reported yet.</p>;
   }
 
   return (
@@ -1302,8 +1327,11 @@ function OutputsBlock(props: { resultMeta: unknown }) {
           <h4>Artifacts</h4>
           {result.artifacts.map((artifact, index) => (
             <div className="outputItem" key={`artifact-${index}`}>
-              <span>{artifact.at ? formatDate(artifact.at) : "artifact"}</span>
-              <code>{artifact.path}</code>
+              <span>{artifact.at ? formatDate(artifact.at) : "artifact pointer"}</span>
+              <div className="outputValueRow">
+                <code>{artifact.path}</code>
+                <CopyButton value={artifact.path} label="Copy artifact path" />
+              </div>
               {artifact.meta !== undefined && artifact.meta !== null && <pre>{formatJson(artifact.meta)}</pre>}
             </div>
           ))}
@@ -1315,13 +1343,34 @@ function OutputsBlock(props: { resultMeta: unknown }) {
           {result.outputs.map((output, index) => (
             <div className="outputItem" key={`output-${index}`}>
               <span>{output.name}</span>
-              <pre>{formatJson(output.value)}</pre>
+              <div className="outputValueRow">
+                <pre>{formatJson(output.value)}</pre>
+                <CopyButton value={formatJson(output.value)} label={`Copy ${output.name}`} />
+              </div>
             </div>
           ))}
         </div>
       )}
-      {result.raw !== null && <pre>{formatJson(result.raw)}</pre>}
+      {result.raw !== null && (
+        <div className="outputValueRow">
+          <pre>{formatJson(result.raw)}</pre>
+          <CopyButton value={formatJson(result.raw)} label="Copy raw result" />
+        </div>
+      )}
     </div>
+  );
+}
+
+function CopyButton(props: { value: string; label: string }) {
+  return (
+    <button
+      className="copyButton"
+      title={props.label}
+      aria-label={props.label}
+      onClick={() => void navigator.clipboard?.writeText(props.value)}
+    >
+      <Clipboard size={13} />
+    </button>
   );
 }
 

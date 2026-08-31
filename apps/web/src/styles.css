@@ -1090,6 +1090,35 @@ p {
   max-height: 180px;
 }
 
+.outputValueRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: start;
+}
+
+.outputValueRow pre {
+  width: 100%;
+  min-height: 0;
+}
+
+.copyButton {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(104, 124, 138, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #52616c;
+  box-shadow: 0 1px 2px rgba(25, 35, 45, 0.04);
+}
+
+.copyButton:hover {
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+}
+
 .codePanel {
   min-width: 0;
   border-top: 1px solid var(--hairline);

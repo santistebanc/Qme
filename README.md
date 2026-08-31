@@ -52,7 +52,47 @@ const url = qme.args.require(0, "url");
 
 qme.job.log(`Scraping ${url}`);
 qme.job.progress(25, { url });
-qme.job.output("url", url);
+qme.job.result({
+  summary: { url, rows: 120 },
+  artifacts: [{
+    path: "outputs/run-123/pages.jsonl",
+    meta: { format: "jsonl", rows: 120 }
+  }]
+});
+```
+
+## Results And Artifacts
+
+Qme stores job state, logs, progress, small structured outputs, and artifact
+pointers. Your scraper should store the full scraped dataset in its own file or
+database, then report where that data lives.
+
+```ts
+const rows = await scrape(url);
+const artifact = `outputs/${qme.jobId}/pages.jsonl`;
+
+await writeJsonl(artifact, rows);
+
+qme.job.result({
+  summary: {
+    url,
+    rows: rows.length,
+    artifact
+  },
+  artifacts: [{
+    path: artifact,
+    meta: { format: "jsonl", rows: rows.length }
+  }]
+});
+```
+
+Clients read those results from `job.resultMeta`:
+
+```ts
+const job = await qme.jobs.get(jobId);
+
+console.log(job.resultMeta?.outputs);
+console.log(job.resultMeta?.artifacts);
 ```
 
 ## Trusted Local Apps

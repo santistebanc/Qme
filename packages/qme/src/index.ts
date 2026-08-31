@@ -52,8 +52,10 @@ export type {
 } from "@qme/client";
 export type {
   AddFlowJobInput,
+  QmeArtifactInput,
   QmeCommand,
   QmeContext,
+  QmeJobResultInput,
   QmePollOptions,
   QmeSdkOptions,
   QmeSleepOptions,

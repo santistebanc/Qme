@@ -56,6 +56,17 @@ export interface AddFlowJobInput {
   rateLimitBuckets?: string[];
 }
 
+export interface QmeArtifactInput {
+  path: string;
+  meta?: unknown;
+}
+
+export interface QmeJobResultInput {
+  summary?: unknown;
+  outputs?: Record<string, unknown>;
+  artifacts?: Array<string | QmeArtifactInput>;
+}
+
 export class QmeSdk {
   readonly apiUrl: string;
   readonly jobId?: string;
@@ -98,6 +109,7 @@ export class QmeSdk {
     progress: (progressPercent: number, progressMeta?: unknown) => this.progress(progressPercent, progressMeta),
     artifact: (path: string, meta?: unknown) => this.artifact(path, meta),
     output: (name: string, value: unknown) => this.output(name, value),
+    result: (result: QmeJobResultInput) => this.result(result),
     event: (type: string, data?: unknown) => this.event(type, data),
     log: (line: string, stream: "stdout" | "stderr" = "stdout") => this.log(line, stream),
     warn: (message: string, data?: unknown) => this.warn(message, data),
@@ -178,6 +190,22 @@ export class QmeSdk {
 
   output(name: string, value: unknown): void {
     this.protocol({ type: "job.output", name, value });
+  }
+
+  result(result: QmeJobResultInput): void {
+    if (result.summary !== undefined) {
+      this.output("summary", result.summary);
+    }
+    for (const [name, value] of Object.entries(result.outputs ?? {})) {
+      this.output(name, value);
+    }
+    for (const artifact of result.artifacts ?? []) {
+      if (typeof artifact === "string") {
+        this.artifact(artifact);
+      } else {
+        this.artifact(artifact.path, artifact.meta);
+      }
+    }
   }
 
   event(type: string, data?: unknown): void {
