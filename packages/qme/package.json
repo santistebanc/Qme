@@ -1,9 +1,13 @@
 {
   "name": "qme",
   "version": "0.1.0",
+  "description": "TypeScript-first local job queue and dashboard for trusted apps.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "bin": {
     "qme": "dist/cli.js"
   },
@@ -28,5 +32,23 @@
   },
   "devDependencies": {
     "tsx": "^4.20.6"
-  }
+  },
+  "keywords": [
+    "queue",
+    "jobs",
+    "workflow",
+    "sqlite",
+    "dashboard",
+    "scraping"
+  ],
+  "homepage": "https://santistebanc.github.io/Qme/",
+  "bugs": {
+    "url": "https://github.com/santistebanc/Qme/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santistebanc/Qme.git",
+    "directory": "packages/qme"
+  },
+  "license": "MIT"
 }

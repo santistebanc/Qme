@@ -1,9 +1,13 @@
 {
   "name": "@qme/sdk",
   "version": "0.1.0",
+  "description": "Script-side helpers for Qme jobs.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,5 +28,14 @@
   },
   "dependencies": {
     "@qme/client": "0.1.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santistebanc/Qme.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
 }

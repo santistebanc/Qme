@@ -1,9 +1,13 @@
 {
   "name": "@qme/core",
   "version": "0.1.0",
+  "description": "Core runtime, SQLite store, and worker pool for Qme.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,5 +27,14 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/ws": "^8.18.1",
     "tsx": "^4.20.6"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santistebanc/Qme.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
 }

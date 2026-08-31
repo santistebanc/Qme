@@ -1,8 +1,13 @@
 {
   "name": "@qme/server",
   "version": "0.1.0",
+  "description": "Local HTTP API and dashboard server for Qme.",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -34,5 +39,14 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/ws": "^8.18.1",
     "tsx": "^4.20.6"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santistebanc/Qme.git",
+    "directory": "packages/server"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
 }
