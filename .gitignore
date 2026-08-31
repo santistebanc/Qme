@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-types/
+.qme/
+.qme-*/
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

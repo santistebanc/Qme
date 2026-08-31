@@ -1,0 +1,16 @@
+{
+  "name": "@qme/example-embedded",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/inline.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "qme": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}

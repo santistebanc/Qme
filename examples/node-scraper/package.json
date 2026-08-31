@@ -1,0 +1,18 @@
+{
+  "name": "@qme/example-node-scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/enqueue.ts",
+    "verify:controls": "tsx src/verify-controls.ts",
+    "verify:orchestration": "tsx src/verify-orchestration.ts",
+    "verify:recovery:create": "tsx src/verify-recovery-create.ts",
+    "job": "tsx src/scrape-job.ts"
+  },
+  "dependencies": {
+    "qme": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}
