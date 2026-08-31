@@ -10,11 +10,14 @@ const qme = new Qme({
 const job = await qme.add(
   "math",
   "sum",
-  ({ data, progress, output }) => {
+  ({ data, progress, result }) => {
     const input = data as { a: number; b: number };
     progress(50, { step: "adding" });
     const sum = input.a + input.b;
-    output("sum", sum);
+    result({
+      summary: { sum },
+      outputs: { sum }
+    });
     return { sum };
   },
   {

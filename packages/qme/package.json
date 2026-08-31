@@ -4,6 +4,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "qme": "dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,6 +15,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -19,5 +25,8 @@
     "@qme/core": "0.1.0",
     "@qme/sdk": "0.1.0",
     "@qme/server": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
   }
 }

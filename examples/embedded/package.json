@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/inline.ts",
+    "dashboard": "tsx src/dashboard.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

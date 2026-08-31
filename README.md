@@ -12,6 +12,9 @@ Try the static dashboard demo on GitHub Pages:
 
 ## Embedded Library
 
+Use this mode when your TypeScript app should own the queue runtime, SQLite
+store, and workers directly.
+
 ```ts
 import { Qme } from "qme";
 
@@ -36,10 +39,10 @@ await qme.add(
 );
 ```
 
-Use `new Qme(...)` when your TypeScript app should own the queue runtime,
-SQLite store, and workers.
-
 ## Script Jobs
+
+Use this mode for work that should run as a separate trusted process, such as a
+Node, Python, or shell scraper.
 
 Scripts launched by Qme use the same package and discover their job context from
 environment variables:
@@ -97,6 +100,9 @@ console.log(job.resultMeta?.artifacts);
 
 ## Trusted Local Apps
 
+Use this mode when another trusted local Node app should enqueue work or monitor
+a Qme runtime that is already running.
+
 Other trusted local Node apps can connect to an already running Qme runtime:
 
 ```ts
@@ -137,6 +143,26 @@ import { Qme } from "qme";
 From there, use the same plain nouns: `qme.jobs`, `qme.queues`, `qme.flows`,
 `qme.rateLimitBuckets`, `qme.commands`, `qme.scripts`, and `qme.retry`.
 
+The dashboard can also be attached from the same package:
+
+```ts
+import { Qme, createApp } from "qme";
+
+const qme = new Qme({
+  db: ".qme/qme.sqlite",
+  workspaceRoots: [process.cwd()]
+});
+
+const app = await createApp({
+  qme,
+  paths: qme.paths,
+  port: 47321,
+  workspaceRoot: process.cwd()
+});
+
+await app.listen({ host: "127.0.0.1", port: 47321 });
+```
+
 ## Development
 
 ```bash
@@ -160,6 +186,12 @@ Run the embedded inline-handler example:
 
 ```bash
 npm run example:embedded
+```
+
+Run the embedded dashboard example:
+
+```bash
+npm run dashboard -w @qme/example-embedded
 ```
 
 Run the control/retry/cancel verification:
