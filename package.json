@@ -14,6 +14,7 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run build -w @qme/core && npm run build -w @qme/client && npm run build -w @qme/sdk && npm run build -w @qme/server && npm run typecheck --workspaces --if-present",
     "smoke:pack": "node scripts/smoke-pack-install.mjs",
+    "check:release": "node scripts/check-release-versions.mjs",
     "verify": "npm run typecheck && npm run test && npm run build && npm run smoke:pack && npm audit --omit=dev",
     "start": "npm run start -w qme",
     "example:scraper": "npm run start -w @qme/example-node-scraper",

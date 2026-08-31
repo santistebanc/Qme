@@ -208,6 +208,15 @@ npm run verify:orchestration -w @qme/example-node-scraper
 
 Set `QME_HOME` to choose where the SQLite database and discovery file live. By default they are stored in `~/.qme`.
 
+## Releases
+
+Release notes live in [CHANGELOG.md](CHANGELOG.md). The manual npm publish
+workflow verifies the repo, checks package version alignment, and publishes the
+internal `@qme/*` packages before the public `qme` package.
+
+See [docs/releasing.md](docs/releasing.md) for the full release checklist and
+the current npm package-name note.
+
 ## Current Slice
 
 Qme now supports embedded TypeScript handlers, enqueueing script jobs, executing them from Node workers, parsing `QME:` protocol lines, retaining bounded logs in SQLite, streaming real-time events to the web UI and Node client, pausing/resuming queues and Flows, updating pending priority, retrying jobs with fixed or exponential backoff, canceling active child processes, Flow/DAG dependencies, dynamic Flow job creation from scripts, declared rate-limit buckets, dedupe keys, a job command channel, metrics, retention cleanup, and interrupted-job recovery on restart.

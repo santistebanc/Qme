@@ -1,0 +1,64 @@
+name: Publish npm Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run npm publish with --dry-run
+        required: true
+        default: true
+        type: boolean
+      tag:
+        description: npm dist-tag to publish with
+        required: true
+        default: next
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run check:release
+      - name: Publish packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NPM_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          publish_workspace() {
+            local workspace="$1"
+            local dry_run_arg=""
+            if [[ "$DRY_RUN" == "true" ]]; then
+              dry_run_arg="--dry-run"
+            fi
+
+            if [[ "$workspace" == @* ]]; then
+              npm publish --workspace "$workspace" --tag "$NPM_TAG" --access public $dry_run_arg
+            else
+              npm publish --workspace "$workspace" --tag "$NPM_TAG" $dry_run_arg
+            fi
+          }
+
+          if [[ "$DRY_RUN" != "true" && -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "NPM_TOKEN is required when dry_run is false."
+            exit 1
+          fi
+
+          publish_workspace "@qme/client"
+          publish_workspace "@qme/core"
+          publish_workspace "@qme/sdk"
+          publish_workspace "@qme/server"
+          publish_workspace "qme"
